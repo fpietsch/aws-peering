@@ -4,6 +4,16 @@ import boto3
 import botocore
 import yaml
 REGION = 'eu-central-1'
+VERIFY = False
+SSL = True
+
+def assume_role(**args):
+    client = boto3.client('sts',use_ssl=SSL, verify=VERIFY)
+    response = client.assume_role(**args)
+    return boto3.Session(region_name='eu-central-1',
+        aws_access_key_id=response['Credentials']['AccessKeyId'],
+        aws_secret_access_key=response['Credentials']['SecretAccessKey'],
+        aws_session_token=response['Credentials']['SessionToken'])
 
 with open('./config.yml', 'r') as file:
     config = yaml.load(file)
@@ -12,28 +22,36 @@ for peer in config['peer']:
 
     from_peer = peer['from']
     to_peer = peer['to']
-    from_session = boto3.Session(
-        profile_name=from_peer['profile'],
-        region_name=REGION
-    )
+    from_session =  assume_role(RoleArn=from_peer['role'],
+                                RoleSessionName='Peering_from-Session')
 
-    from_client = from_session.client('ec2')
-    from_resource = from_session.resource('ec2')
-
-    for to in to_peer:
-        to_session = boto3.Session(
-            profile_name=to['profile'],
-            region_name=REGION
+    #from_session = boto3.Session(
+    #    profile_name=from_peer['profile'],
+    #    region_name=REGION
+    #)
+    print """Peering from VPC {} ({}) """.format(
+            from_peer['vpc-id'],
+            from_peer['role']
         )
-        to_client = to_session.client('ec2')
-        to_resource = to_session.resource('ec2')
-        to_account = to_session.client('sts').get_caller_identity().get('Account')
+    from_client = from_session.client('ec2',use_ssl=SSL, verify=VERIFY)
+    from_resource = from_session.resource('ec2',use_ssl=SSL, verify=VERIFY)
+    
+    for to in to_peer:
+        to_session = assume_role(RoleArn=to['role'],
+                                RoleSessionName='Peering_from-Session')
+		#= boto3.Session(
+        #    profile_name=to['profile'],
+        #    region_name=REGION
+        #)
+        to_client = to_session.client('ec2',use_ssl=SSL, verify=VERIFY)
+        to_resource = to_session.resource('ec2',use_ssl=SSL, verify=VERIFY)
+        to_account = to_session.client('sts',use_ssl=SSL, verify=VERIFY).get_caller_identity().get('Account')
 				
         print """Peering from VPC {} ({}) to {} in {}""".format(
             from_peer['vpc-id'],
-            from_peer['profile'],
+            from_peer['role'],
             to['vpc-id'],
-            to['profile']
+            to['role']
         )
         try:
             from_vpc = from_resource.Vpc(

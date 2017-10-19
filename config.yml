@@ -1,7 +1,7 @@
 peer:
   - from: 
-      vpc-id: <source vpc>
-      profile: preis_lab
+      vpc-id: vpc-d26c6cba
+      role: arn:aws:iam::xxx:role/PowerUserAccess
     to:
-      - vpc-id: <target vpc>
-        profile: preis_lab
+      - vpc-id: vpc-039bb36b
+        role: arn:aws:iam::xxx:role/PowerUserAccess
