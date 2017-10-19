@@ -3,7 +3,7 @@
 import boto3
 import botocore
 import yaml
-
+REGION = 'eu-central-1'
 
 with open('./config.yml', 'r') as file:
     config = yaml.load(file)
@@ -14,7 +14,7 @@ for peer in config['peer']:
     to_peer = peer['to']
     from_session = boto3.Session(
         profile_name=from_peer['profile'],
-        region_name=peer['region']
+        region_name=REGION
     )
 
     from_client = from_session.client('ec2')
@@ -23,11 +23,12 @@ for peer in config['peer']:
     for to in to_peer:
         to_session = boto3.Session(
             profile_name=to['profile'],
-            region_name=peer['region']
+            region_name=REGION
         )
         to_client = to_session.client('ec2')
         to_resource = to_session.resource('ec2')
-
+        to_account = to_session.client('sts').get_caller_identity().get('Account')
+				
         print """Peering from VPC {} ({}) to {} in {}""".format(
             from_peer['vpc-id'],
             from_peer['profile'],
@@ -55,7 +56,7 @@ for peer in config['peer']:
                 DryRun=False,
                 VpcId=from_peer['vpc-id'],
                 PeerVpcId=str(to['vpc-id']),
-                PeerOwnerId=str(to['account'])
+                PeerOwnerId=str(to_account)
             )
 
             connectionId = response[
@@ -79,24 +80,22 @@ for peer in config['peer']:
                 VpcPeeringConnectionId=connectionId
             )
 
-            for table in from_peer['routetables']:
-                s = from_resource.RouteTable(table)
-                print s.create_route(
+            for table in from_vpc.route_tables.all():
+                print table.create_route(
                     DryRun=False,
                     DestinationCidrBlock=to_vpc.cidr_block,
                     VpcPeeringConnectionId=connectionId
                 )
-                print "RouteTable {} updated with route".format(table)
+                print "RouteTable {} updated with route".format(table.route_table_id)
 
-            for table in to['routetables']:
-                s = to_resource.RouteTable(table)
-                print s.create_route(
+            for table in to_vpc.route_tables.all():
+                print table.create_route(
                     DryRun=False,
                     DestinationCidrBlock=from_vpc.cidr_block,
                     VpcPeeringConnectionId=connectionId
                 )
 
-                print "RouteTable {} updated with route".format(table)
+                print "RouteTable {} updated with route".format(table.route_table_id)
 
         except Exception as e:
             print e

@@ -1,13 +1,7 @@
 peer:
-  - region: Region to use
-    from: 
+  - from: 
       vpc-id: <source vpc>
-      profile: <aws profile to use>
-      routetables:
-        - routeable
+      profile: preis_lab
     to:
       - vpc-id: <target vpc>
-        profile: <target aws profile>
-        account: <target account number>
-        routetables:
-          - <routetables to update>
+        profile: preis_lab
